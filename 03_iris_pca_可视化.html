@@ -1352,7 +1352,7 @@ function render3d() {
 function renderLoadings() {
   const k = state.k;
   const el = document.getElementById("loadings");
-  let html = "<table><thead><tr><th>特征 \\ 主成分</th>";
+  let html = "<table><thead><tr><th>特征</th>";
   for (let c = 0; c < 4; c++) {
     html += `<th style="${c < k ? "color:#7fc4ff" : "opacity:.45"}">PC${c + 1}${c < k ? "" : "（弃）"}</th>`;
   }

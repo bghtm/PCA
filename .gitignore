@@ -17,3 +17,5 @@ build/ep*/
 # 系统
 .DS_Store
 Thumbs.db
+build/final_check.png
+build/ep*/
