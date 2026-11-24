@@ -807,12 +807,12 @@ if __name__ == "__main__":
                        "01_鸢尾花PCA_注释版.ipynb")
     # 顶部追加环境准备 cell
     head_cells = [("md", r"""
-# 0. 环境准备
+# 1. 环境准备
 
 只导入三种东西：`numpy`（数值计算）、`matplotlib`（画图）、`sklearn.datasets`（拿数据集）。
 PCA 本身**完全手写**，不调用 `sklearn.decomposition.PCA`（只在第 6 章做交叉验证时用一下）。
 """), ("code", r"""
-# ==================== 0. 环境准备 ====================
+# ==================== 1. 环境准备 ====================
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -836,7 +836,6 @@ print("matplotlib :", matplotlib.__version__)
 import sklearn
 print("scikit-learn:", sklearn.__version__)
 """)]
-    # 把 0 号环境准备放到最前面，并去掉 4.1 里重复的 import
-    head_cells[1] = ("code", head_cells[1][1])
-    cells = head_cells + cells
+    # 把「1. 环境准备」紧跟在标题后面，并去掉 4.1 里重复的 import
+    cells = [cells[0]] + head_cells + cells[1:]
     build(cells, out)
