@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# notebook 运行时产生的中间文件
+images/_demo_bgr.jpg
+images/中文路径测试.jpg
+
+# 页面截图/校验的临时产物
+build/_shot.html
+build/shot_*.png
+build/*.log
+build/edgeprof*/
+build/ep*/
+
+# 系统
+.DS_Store
+Thumbs.db

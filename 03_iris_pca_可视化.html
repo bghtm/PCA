@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鸢尾花降维可视化 · Iris PCA Playground</title>
+<style>
+  :root {
+    --bg: #070b16;
+    --bg2: #0c1322;
+    --card: rgba(18, 26, 45, 0.86);
+    --card-b: rgba(120, 160, 255, 0.15);
+    --text: #e7edff;
+    --muted: #8b99bd;
+    --accent: #4ea8ff;
+    --cyan: #35e0d0;
+    --amber: #ffc451;
+    --rose: #ff7a7a;
+    --setosa: #4ea8ff;
+    --versicolor: #35d07f;
+    --virginica: #ff8a5c;
+    --mono: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    --sans: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 12% -8%, rgba(78, 168, 255, 0.16), transparent 60%),
+      radial-gradient(900px 500px at 92% 4%, rgba(53, 224, 208, 0.10), transparent 55%),
+      radial-gradient(800px 700px at 50% 110%, rgba(255, 138, 92, 0.08), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+
+  /* ---------- 顶部 ---------- */
+  .hero {
+    padding: 30px 26px 10px;
+    max-width: 1560px;
+    margin: 0 auto;
+  }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(22px, 2.4vw, 34px);
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    background: linear-gradient(92deg, #ffffff 10%, #9ec8ff 55%, #35e0d0 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero h1 small {
+    font-size: 0.5em;
+    font-weight: 500;
+    letter-spacing: 2px;
+    color: var(--muted);
+    background: none;
+    -webkit-text-fill-color: var(--muted);
+    margin-left: 10px;
+    text-transform: uppercase;
+  }
+  .hero p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 980px;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--card-b);
+    background: rgba(78, 168, 255, 0.08);
+    color: #b9cdf5;
+    font-family: var(--mono);
+  }
+  .badge b { color: var(--cyan); font-weight: 600; }
+
+  /* ---------- 布局 ---------- */
+  .app {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 14px 26px 40px;
+    display: grid;
+    grid-template-columns: 316px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .stage { display: grid; gap: 16px; min-width: 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .grid-wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-b);
+    border-radius: 14px;
+    padding: 14px 16px 12px;
+    backdrop-filter: blur(6px);
+    min-width: 0;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #cfe0ff;
+    letter-spacing: 0.4px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .card h2 span.hint { font-weight: 400; font-size: 11.5px; color: var(--muted); }
+  .card canvas { display: block; width: 100%; touch-action: none; }
+  .card .chart { height: 330px; }
+  #c3d { height: 330px; cursor: grab; }
+  #c3d:active { cursor: grabbing; }
+
+  /* ---------- 控制面板 ---------- */
+  .controls { position: sticky; top: 14px; }
+  .ctrl-group { margin-bottom: 16px; }
+  .ctrl-group:last-child { margin-bottom: 4px; }
+  .ctrl-title {
+    font-size: 11.5px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ctrl-title b { color: var(--cyan); font-family: var(--mono); font-size: 13px; letter-spacing: 0; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent) var(--p, 25%), rgba(255,255,255,0.12) var(--p, 25%));
+    outline: none;
+    margin: 10px 0 6px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(78,168,255,0.65);
+  }
+
+  .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; }
+  .switch-row label { font-size: 13px; color: #c6d5f5; cursor: pointer; }
+  .switch { position: relative; width: 40px; height: 22px; flex: 0 0 auto; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.12);
+    border-radius: 999px; transition: 0.2s; cursor: pointer;
+  }
+  .switch span::before {
+    content: "";
+    position: absolute; width: 16px; height: 16px; left: 3px; top: 3px;
+    border-radius: 50%; background: #fff; transition: 0.2s;
+  }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::before { transform: translateX(18px); }
+
+  select {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid var(--card-b);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  select:focus { border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .class-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
+  .class-toggle button {
+    flex: 1 1 0;
+    min-width: 78px;
+    padding: 6px 4px;
+    font-size: 11.5px;
+    border-radius: 8px;
+    border: 1px solid var(--card-b);
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    cursor: pointer;
+    transition: 0.18s;
+    font-family: var(--mono);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .class-toggle button i {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor; opacity: 0.45;
+  }
+  .class-toggle button.on { color: var(--text); border-color: currentColor; }
+  .class-toggle button.on i { opacity: 1; }
+  .class-toggle button[data-class="0"] { color: var(--setosa); }
+  .class-toggle button[data-class="1"] { color: var(--versicolor); }
+  .class-toggle button[data-class="2"] { color: var(--virginica); }
+  .class-toggle button.off { opacity: 0.4; }
+
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+  button.btn {
+    background: linear-gradient(180deg, rgba(78,168,255,0.22), rgba(78,168,255,0.10));
+    border: 1px solid rgba(78, 168, 255, 0.4);
+    color: #d8e8ff;
+    border-radius: 9px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: 0.18s;
+  }
+  button.btn:hover { background: rgba(78, 168, 255, 0.28); border-color: var(--accent); }
+  button.btn.ghost {
+    background: rgba(255,255,255,0.04);
+    border-color: var(--card-b);
+    color: var(--muted);
+  }
+
+  /* ---------- 指标卡 ---------- */
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .metric {
+    background: rgba(78, 168, 255, 0.07);
+    border: 1px solid var(--card-b);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .metric .k { font-size: 10.5px; color: var(--muted); letter-spacing: 0.6px; }
+  .metric .v { font-family: var(--mono); font-size: 17px; color: var(--cyan); font-weight: 600; }
+  .metric .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  /* ---------- 表格 ---------- */
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  th, td { padding: 5px 7px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 0.3px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  tbody tr:last-child td { border-bottom: none; }
+  .cell-heat { border-radius: 4px; }
+  .err { color: var(--rose); }
+
+  pre.summary {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: #b9cdf5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 250px;
+    overflow: auto;
+  }
+  .formula {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #9fb6e0;
+    background: rgba(255,255,255,0.035);
+    border-left: 2px solid rgba(78,168,255,0.5);
+    padding: 6px 9px;
+    border-radius: 0 6px 6px 0;
+    margin: 6px 0 0;
+    white-space: pre-wrap;
+  }
+  .legend-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .legend-row i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+
+  /* ---------- tooltip ---------- */
+  #tooltip {
+    position: fixed;
+    z-index: 50;
+    pointer-events: none;
+    min-width: 190px;
+    max-width: 260px;
+    padding: 9px 11px;
+    border-radius: 10px;
+    background: rgba(9, 14, 26, 0.96);
+    border: 1px solid rgba(120, 160, 255, 0.35);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.55);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #dbe6ff;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.12s, transform 0.12s;
+    line-height: 1.55;
+  }
+  #tooltip.show { opacity: 1; transform: translateY(0); }
+  #tooltip .t-head { font-family: var(--sans); font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+  #tooltip .t-row { display: flex; justify-content: space-between; gap: 12px; color: #9fb0d4; }
+  #tooltip .t-row b { color: #eaf1ff; font-weight: 500; }
+
+  .sidenote { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  .sidenote code { font-family: var(--mono); color: #9fd8ff; }
+
+  @media (max-width: 1180px) {
+    .app { grid-template-columns: 1fr; }
+    .controls { position: static; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>鸢尾花降维可视化<small>Iris · PCA Playground</small></h1>
+  <p>
+    从 4 维（花萼长/宽、花瓣长/宽）降到 k 维的完整过程，全部在浏览器里用 JavaScript 实时计算：
+    零均值化 → 协方差矩阵 → Jacobi 特征分解 → 主成分排序 → 投影 → 反投影重构。
+    拖动 k 观察信息损失，切换标准化观察量纲的影响，悬停任意点查看它在原始空间与 PCA 空间的位置。
+  </p>
+  <div class="badges">
+    <span class="badge">样本 <b>150</b></span>
+    <span class="badge">特征 <b>4</b></span>
+    <span class="badge">类别 <b>3</b></span>
+    <span class="badge">PC1 方差 <b id="badge-pc1">97.77%</b></span>
+    <span class="badge">纯前端 <b>0 依赖</b></span>
+    <span class="badge">特征分解 <b>Jacobi</b></span>
+  </div>
+</header>
+
+<main class="app">
+  <!-- ================= 控制面板 ================= -->
+  <aside class="panel controls card">
+    <div class="metrics">
+      <div class="metric"><div class="k">保留信息量</div><div class="v"><span id="m-keep">97.77</span><small>%</small></div></div>
+      <div class="metric"><div class="k">重构 RMSE</div><div class="v"><span id="m-rmse">0.16</span><small>cm</small></div></div>
+      <div class="metric"><div class="k">存储压缩率</div><div class="v"><span id="m-comp">50</span><small>%</small></div></div>
+      <div class="metric"><div class="k">当前维度 k</div><div class="v"><span id="m-k">2</span><small>/4</small></div></div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-title">目标维度 k <b id="k-label">2 维</b></div>
+      <input type="range" id="k-slider" min="1" max="4" step="1" value="2" aria-label="目标维度 k">
+      <div class="legend-row"><span>k=4 为无损</span><span>k=1 只留 PC1</span></div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-title">预处理</div>
+      <div class="switch-row">
+        <label for="std-toggle">标准化（z-score）</label>
+        <span class="switch"><input type="checkbox" id="std-toggle"><span></span></span>
+      </div>
+      <div class="sidenote" id="std-note">当前：只做零均值化（与课程代码一致）</div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-title">原始空间坐标轴</div>
+      <div class="row2">
+        <select id="raw-x" aria-label="原始空间 X 轴"></select>
+        <select id="raw-y" aria-label="原始空间 Y 轴"></select>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-title">PCA 空间坐标轴</div>
+      <div class="row2">
+        <select id="pc-x" aria-label="PCA 空间 X 轴"></select>
+        <select id="pc-y" aria-label="PCA 空间 Y 轴"></select>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-title">显示类别</div>
+      <div class="class-toggle" id="class-toggle">
+        <button data-class="0" class="on"><i></i>setosa</button>
+        <button data-class="1" class="on"><i></i>versicolor</button>
+        <button data-class="2" class="on"><i></i>virginica</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-title">显示选项</div>
+      <div class="switch-row">
+        <label for="arrow-toggle">特征载荷箭头</label>
+        <span class="switch"><input type="checkbox" id="arrow-toggle" checked><span></span></span>
+      </div>
+      <div class="switch-row">
+        <label for="grid-toggle">网格与刻度</label>
+        <span class="switch"><input type="checkbox" id="grid-toggle" checked><span></span></span>
+      </div>
+      <div class="switch-row">
+        <label for="auto3d-toggle">3D 自动旋转</label>
+        <span class="switch"><input type="checkbox" id="auto3d-toggle"><span></span></span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="btn-row">
+        <button class="btn" id="play-btn">▶ 播放投影动画</button>
+        <button class="btn ghost" id="reset-btn">重置视角</button>
+      </div>
+      <div class="formula">Y = X̃ · P          （投影，150×4 → 150×k）
+X̂ = Y · Pᵀ + μ      （反投影，重构回 4 维）</div>
+    </div>
+  </aside>
+
+  <!-- ================= 图表 ================= -->
+  <section class="stage">
+    <div class="grid2">
+      <div class="card">
+        <h2>① 原始特征空间 <span class="hint">点 = 一个鸢尾花样本</span></h2>
+        <canvas id="cRaw" class="chart"></canvas>
+        <div class="legend-row" id="raw-legend"></div>
+      </div>
+      <div class="card">
+        <h2>② PCA 投影空间 <span class="hint">颜色 = 真实类别（未参与降维）</span></h2>
+        <canvas id="cPca" class="chart"></canvas>
+        <div class="legend-row" id="pca-legend"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>③ 碎石图：每个主成分解释了多少方差</h2>
+        <canvas id="cScree" class="chart"></canvas>
+        <div class="legend-row">
+          <span><i style="background:#4ea8ff"></i>单个贡献率</span>
+          <span><i style="background:#ffc451"></i>累计贡献率</span>
+          <span><i style="background:#ff7a7a"></i>当前保留 k</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>④ 3D 视角 PC1-PC2-PC3 <span class="hint">拖动旋转 / 滚轮缩放</span></h2>
+        <canvas id="c3d"></canvas>
+        <div class="legend-row" id="legend3d">
+          <span><i style="background:#4ea8ff"></i>setosa</span>
+          <span><i style="background:#35d07f"></i>versicolor</span>
+          <span><i style="background:#ff8a5c"></i>virginica</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-wide">
+      <div class="card">
+        <h2>⑤ 载荷矩阵 P <span class="hint">每列一个主成分，绝对值越大越重要</span></h2>
+        <div id="loadings"></div>
+        <div class="sidenote">
+          PC1 主要由「花瓣长 / 花瓣宽」驱动 → 可以理解为<strong>整体花朵大小</strong>；
+          PC2 主要由「花萼宽」驱动（负号）→ 可以理解为<strong>花萼的宽窄</strong>。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⑥ 重构：4 维原值 vs 降维再还原</h2>
+        <div id="recon-table"></div>
+        <div class="sidenote">误差 = 原值 − 重构值，单位 cm。k=4 时误差恒为 0（信息无损）。</div>
+      </div>
+
+      <div class="card">
+        <h2>⑦ 数据摘要 <span class="hint">实时计算</span></h2>
+        <pre class="summary" id="summary"></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="tooltip"></div>
+
+<!-- =====================================================================
+     数据：Iris（Fisher, 1936），150 行 × 4 列，第 5 列是类别 0/1/2
+     ===================================================================== -->
+<script id="iris-data">
+/* IRIS-DATA-BEGIN */
+const IRIS = {
+  features: ["花萼长 SL (cm)", "花萼宽 SW (cm)", "花瓣长 PL (cm)", "花瓣宽 PW (cm)"],
+  species: ["setosa", "versicolor", "virginica"],
+  x: [
+    [5.1, 3.5, 1.4, 0.2],
+    [4.9, 3.0, 1.4, 0.2],
+    [4.7, 3.2, 1.3, 0.2],
+    [4.6, 3.1, 1.5, 0.2],
+    [5.0, 3.6, 1.4, 0.2],
+    [5.4, 3.9, 1.7, 0.4],
+    [4.6, 3.4, 1.4, 0.3],
+    [5.0, 3.4, 1.5, 0.2],
+    [4.4, 2.9, 1.4, 0.2],
+    [4.9, 3.1, 1.5, 0.1],
+    [5.4, 3.7, 1.5, 0.2],
+    [4.8, 3.4, 1.6, 0.2],
+    [4.8, 3.0, 1.4, 0.1],
+    [4.3, 3.0, 1.1, 0.1],
+    [5.8, 4.0, 1.2, 0.2],
+    [5.7, 4.4, 1.5, 0.4],
+    [5.4, 3.9, 1.3, 0.4],
+    [5.1, 3.5, 1.4, 0.3],
+    [5.7, 3.8, 1.7, 0.3],
+    [5.1, 3.8, 1.5, 0.3],
+    [5.4, 3.4, 1.7, 0.2],
+    [5.1, 3.7, 1.5, 0.4],
+    [4.6, 3.6, 1.0, 0.2],
+    [5.1, 3.3, 1.7, 0.5],
+    [4.8, 3.4, 1.9, 0.2],
+    [5.0, 3.0, 1.6, 0.2],
+    [5.0, 3.4, 1.6, 0.4],
+    [5.2, 3.5, 1.5, 0.2],
+    [5.2, 3.4, 1.4, 0.2],
+    [4.7, 3.2, 1.6, 0.2],
+    [4.8, 3.1, 1.6, 0.2],
+    [5.4, 3.4, 1.5, 0.4],
+    [5.2, 4.1, 1.5, 0.1],
+    [5.5, 4.2, 1.4, 0.2],
+    [4.9, 3.1, 1.5, 0.2],
+    [5.0, 3.2, 1.2, 0.2],
+    [5.5, 3.5, 1.3, 0.2],
+    [4.9, 3.6, 1.4, 0.1],
+    [4.4, 3.0, 1.3, 0.2],
+    [5.1, 3.4, 1.5, 0.2],
+    [5.0, 3.5, 1.3, 0.3],
+    [4.5, 2.3, 1.3, 0.3],
+    [4.4, 3.2, 1.3, 0.2],
+    [5.0, 3.5, 1.6, 0.6],
+    [5.1, 3.8, 1.9, 0.4],
+    [4.8, 3.0, 1.4, 0.3],
+    [5.1, 3.8, 1.6, 0.2],
+    [4.6, 3.2, 1.4, 0.2],
+    [5.3, 3.7, 1.5, 0.2],
+    [5.0, 3.3, 1.4, 0.2],
+    [7.0, 3.2, 4.7, 1.4],
+    [6.4, 3.2, 4.5, 1.5],
+    [6.9, 3.1, 4.9, 1.5],
+    [5.5, 2.3, 4.0, 1.3],
+    [6.5, 2.8, 4.6, 1.5],
+    [5.7, 2.8, 4.5, 1.3],
+    [6.3, 3.3, 4.7, 1.6],
+    [4.9, 2.4, 3.3, 1.0],
+    [6.6, 2.9, 4.6, 1.3],
+    [5.2, 2.7, 3.9, 1.4],
+    [5.0, 2.0, 3.5, 1.0],
+    [5.9, 3.0, 4.2, 1.5],
+    [6.0, 2.2, 4.0, 1.0],
+    [6.1, 2.9, 4.7, 1.4],
+    [5.6, 2.9, 3.6, 1.3],
+    [6.7, 3.1, 4.4, 1.4],
+    [5.6, 3.0, 4.5, 1.5],
+    [5.8, 2.7, 4.1, 1.0],
+    [6.2, 2.2, 4.5, 1.5],
+    [5.6, 2.5, 3.9, 1.1],
+    [5.9, 3.2, 4.8, 1.8],
+    [6.1, 2.8, 4.0, 1.3],
+    [6.3, 2.5, 4.9, 1.5],
+    [6.1, 2.8, 4.7, 1.2],
+    [6.4, 2.9, 4.3, 1.3],
+    [6.6, 3.0, 4.4, 1.4],
+    [6.8, 2.8, 4.8, 1.4],
+    [6.7, 3.0, 5.0, 1.7],
+    [6.0, 2.9, 4.5, 1.5],
+    [5.7, 2.6, 3.5, 1.0],
+    [5.5, 2.4, 3.8, 1.1],
+    [5.5, 2.4, 3.7, 1.0],
+    [5.8, 2.7, 3.9, 1.2],
+    [6.0, 2.7, 5.1, 1.6],
+    [5.4, 3.0, 4.5, 1.5],
+    [6.0, 3.4, 4.5, 1.6],
+    [6.7, 3.1, 4.7, 1.5],
+    [6.3, 2.3, 4.4, 1.3],
+    [5.6, 3.0, 4.1, 1.3],
+    [5.5, 2.5, 4.0, 1.3],
+    [5.5, 2.6, 4.4, 1.2],
+    [6.1, 3.0, 4.6, 1.4],
+    [5.8, 2.6, 4.0, 1.2],
+    [5.0, 2.3, 3.3, 1.0],
+    [5.6, 2.7, 4.2, 1.3],
+    [5.7, 3.0, 4.2, 1.2],
+    [5.7, 2.9, 4.2, 1.3],
+    [6.2, 2.9, 4.3, 1.3],
+    [5.1, 2.5, 3.0, 1.1],
+    [5.7, 2.8, 4.1, 1.3],
+    [6.3, 3.3, 6.0, 2.5],
+    [5.8, 2.7, 5.1, 1.9],
+    [7.1, 3.0, 5.9, 2.1],
+    [6.3, 2.9, 5.6, 1.8],
+    [6.5, 3.0, 5.8, 2.2],
+    [7.6, 3.0, 6.6, 2.1],
+    [4.9, 2.5, 4.5, 1.7],
+    [7.3, 2.9, 6.3, 1.8],
+    [6.7, 2.5, 5.8, 1.8],
+    [7.2, 3.6, 6.1, 2.5],
+    [6.5, 3.2, 5.1, 2.0],
+    [6.4, 2.7, 5.3, 1.9],
+    [6.8, 3.0, 5.5, 2.1],
+    [5.7, 2.5, 5.0, 2.0],
+    [5.8, 2.8, 5.1, 2.4],
+    [6.4, 3.2, 5.3, 2.3],
+    [6.5, 3.0, 5.5, 1.8],
+    [7.7, 3.8, 6.7, 2.2],
+    [7.7, 2.6, 6.9, 2.3],
+    [6.0, 2.2, 5.0, 1.5],
+    [6.9, 3.2, 5.7, 2.3],
+    [5.6, 2.8, 4.9, 2.0],
+    [7.7, 2.8, 6.7, 2.0],
+    [6.3, 2.7, 4.9, 1.8],
+    [6.7, 3.3, 5.7, 2.1],
+    [7.2, 3.2, 6.0, 1.8],
+    [6.2, 2.8, 4.8, 1.8],
+    [6.1, 3.0, 4.9, 1.8],
+    [6.4, 2.8, 5.6, 2.1],
+    [7.2, 3.0, 5.8, 1.6],
+    [7.4, 2.8, 6.1, 1.9],
+    [7.9, 3.8, 6.4, 2.0],
+    [6.4, 2.8, 5.6, 2.2],
+    [6.3, 2.8, 5.1, 1.5],
+    [6.1, 2.6, 5.6, 1.4],
+    [7.7, 3.0, 6.1, 2.3],
+    [6.3, 3.4, 5.6, 2.4],
+    [6.4, 3.1, 5.5, 1.8],
+    [6.0, 3.0, 4.8, 1.8],
+    [6.9, 3.1, 5.4, 2.1],
+    [6.7, 3.1, 5.6, 2.4],
+    [6.9, 3.1, 5.1, 2.3],
+    [5.8, 2.7, 5.1, 1.9],
+    [6.8, 3.2, 5.9, 2.3],
+    [6.7, 3.3, 5.7, 2.5],
+    [6.7, 3.0, 5.2, 2.3],
+    [6.3, 2.5, 5.0, 1.9],
+    [6.5, 3.0, 5.2, 2.0],
+    [6.2, 3.4, 5.4, 2.3],
+    [5.9, 3.0, 5.1, 1.8]
+  ],
+  y: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+};
+/* IRIS-DATA-END */
+</script>
+
+<script>
+/* =====================================================================
+   PCA 数学内核（纯函数，可被 Node 独立抽取做数值校验）
+   ===================================================================== */
+/* ==PCA-MATH-BEGIN== */
+function matMean(X) {
+  const n = X.length, p = X[0].length;
+  const mu = new Array(p).fill(0);
+  for (let i = 0; i < n; i++) for (let j = 0; j < p; j++) mu[j] += X[i][j];
+  for (let j = 0; j < p; j++) mu[j] /= n;
+  return mu;
+}
+
+function matStd(X, mu, ddof) {
+  const n = X.length, p = X[0].length;
+  const sd = new Array(p).fill(0);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < p; j++) {
+      const d = X[i][j] - mu[j];
+      sd[j] += d * d;
+    }
+  }
+  for (let j = 0; j < p; j++) sd[j] = Math.sqrt(sd[j] / (n - (ddof || 1)));
+  return sd;
+}
+
+/* 中心化（可选再除以标准差） */
+function preprocess(X, standardize) {
+  const mu = matMean(X);
+  const sd = standardize ? matStd(X, mu, 1) : new Array(mu.length).fill(1);
+  const Z = X.map(row => row.map((v, j) => (v - mu[j]) / (standardize ? sd[j] : 1)));
+  return { mu, sd, Z };
+}
+
+/* 协方差矩阵 C = ZᵀZ / (n-1) */
+function covariance(Z) {
+  const n = Z.length, p = Z[0].length;
+  const C = Array.from({ length: p }, () => new Array(p).fill(0));
+  for (let a = 0; a < p; a++) {
+    for (let b = a; b < p; b++) {
+      let s = 0;
+      for (let i = 0; i < n; i++) s += Z[i][a] * Z[i][b];
+      s /= (n - 1);
+      C[a][b] = s;
+      C[b][a] = s;
+    }
+  }
+  return C;
+}
+
+/* 对称矩阵的 Jacobi 特征分解：返回按列存放的特征向量 */
+function jacobiEigen(Ain, maxSweeps) {
+  const n = Ain.length;
+  const A = Ain.map(r => r.slice());
+  const V = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+
+  const maxIter = (maxSweeps || 100) * n * n;
+  for (let iter = 0; iter < maxIter; iter++) {
+    /* 找最大的非对角元 */
+    let p = 0, q = 1, maxOff = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = Math.abs(A[i][j]);
+        if (a > maxOff) { maxOff = a; p = i; q = j; }
+      }
+    }
+    if (maxOff < 1e-13) break;
+
+    const app = A[p][p], aqq = A[q][q], apq = A[p][q];
+    /* 令旋转后 A'[p][q] = 0 的角度：tan(2θ) = 2·a_pq / (a_qq − a_pp) */
+    const theta = 0.5 * Math.atan2(2 * apq, aqq - app);
+    const c = Math.cos(theta), s = Math.sin(theta);
+
+    /* A ← JᵀAJ */
+    for (let i = 0; i < n; i++) {
+      const aip = A[i][p], aiq = A[i][q];
+      A[i][p] = c * aip - s * aiq;
+      A[i][q] = s * aip + c * aiq;
+    }
+    for (let j = 0; j < n; j++) {
+      const apj = A[p][j], aqj = A[q][j];
+      A[p][j] = c * apj - s * aqj;
+      A[q][j] = s * apj + c * aqj;
+    }
+    A[p][q] = 0; A[q][p] = 0;
+
+    /* V ← VJ */
+    for (let i = 0; i < n; i++) {
+      const vip = V[i][p], viq = V[i][q];
+      V[i][p] = c * vip - s * viq;
+      V[i][q] = s * vip + c * viq;
+    }
+  }
+  return { values: A.map((r, i) => r[i]), vectors: V };
+}
+
+/* 完整 PCA：返回均值、标准差、中心化数据、特征值（降序）、主成分（每行 = 一个主成分方向）、得分 */
+function pcaFit(X, opts) {
+  const standardize = !!(opts && opts.standardize);
+  const { mu, sd, Z } = preprocess(X, standardize);
+  const C = covariance(Z);
+  const { values, vectors } = jacobiEigen(C, 80);
+  const n = Z.length, p = Z[0].length;
+
+  /* 降序排序 */
+  const order = values.map((v, i) => i).sort((a, b) => values[b] - values[a]);
+  const eigvals = order.map(i => values[i]);
+  const comps = order.map(ci => {
+    const v = [];
+    for (let j = 0; j < p; j++) v.push(vectors[j][ci]);
+    /* 符号规范化：让绝对值最大的分量为正，保证显示稳定（特征向量符号本不唯一） */
+    let kMax = 0;
+    for (let j = 1; j < p; j++) if (Math.abs(v[j]) > Math.abs(v[kMax])) kMax = j;
+    if (v[kMax] < 0) for (let j = 0; j < p; j++) v[j] = -v[j];
+    return v;
+  });
+
+  /* 得分 Y = Z · Pᵀ */
+  const scores = Z.map(row => comps.map(c => row.reduce((acc, v, j) => acc + v * c[j], 0)));
+  const total = eigvals.reduce((a, b) => a + b, 0);
+  const ratio = eigvals.map(v => v / total);
+  return { mu, sd, Z, C, eigvals, comps, scores, ratio, standardize, n, p };
+}
+
+/* 用前 k 个主成分反投影，得到原始量纲下的重构数据 */
+function reconstruct(fit, k) {
+  const { mu, sd, comps, scores, p, standardize } = fit;
+  return scores.map(y => {
+    const row = new Array(p).fill(0);
+    for (let c = 0; c < k; c++) {
+      const comp = comps[c], w = y[c];
+      for (let j = 0; j < p; j++) row[j] += w * comp[j];
+    }
+    for (let j = 0; j < p; j++) row[j] = mu[j] + row[j] * (standardize ? sd[j] : 1);
+    return row;
+  });
+}
+
+function rmseOf(X, Xhat) {
+  let s = 0, cnt = 0;
+  for (let i = 0; i < X.length; i++) {
+    for (let j = 0; j < X[0].length; j++) {
+      const d = X[i][j] - Xhat[i][j];
+      s += d * d; cnt++;
+    }
+  }
+  return Math.sqrt(s / cnt);
+}
+/* ==PCA-MATH-END== */
+
+/* =====================================================================
+   应用状态与计算
+   ===================================================================== */
+const SPECIES = ["setosa", "versicolor", "virginica"];
+const SPECIES_COLOR = ["#4ea8ff", "#35d07f", "#ff8a5c"];
+const FEATURE_SHORT = ["SL 花萼长", "SW 花萼宽", "PL 花瓣长", "PW 花瓣宽"];
+const FEATURE_CODE = ["SL", "SW", "PL", "PW"];
+const ARROW_COLORS = ["#ffc451", "#5ef0c0", "#ff9ad5", "#8fb8ff"];
+
+const state = {
+  k: 2,
+  standardize: false,
+  rawX: 2, rawY: 3,
+  pcX: 0, pcY: 1,
+  showArrows: true,
+  showGrid: true,
+  auto3d: false,
+  classes: [true, true, true],
+  rot: { x: -0.42, y: 0.72 },
+  zoom: 1,
+  animT: 1,          /* PC2 展开动画进度 */
+  animating: false,
+};
+
+let FIT = null;      /* 当前 pcaFit 结果 */
+let RECON = null;    /* 当前 k 的重构数据 */
+const hit = { raw: [], pca: [], p3d: [] };   /* 每个 canvas 的可命中的点 */
+
+/* ---------- URL 参数（便于分享某个状态 / 自动化截图） ---------- */
+(function applyQuery() {
+  const q = new URLSearchParams(location.search);
+  const num = (key, def) => {
+    const v = parseFloat(q.get(key));
+    return Number.isFinite(v) ? v : def;
+  };
+  if (q.has("k")) state.k = Math.min(4, Math.max(1, Math.round(num("k", 2))));
+  if (q.has("std")) state.standardize = q.get("std") === "1" || q.get("std") === "true";
+  if (q.has("rawX")) state.rawX = Math.min(3, Math.max(0, Math.round(num("rawX", 2))));
+  if (q.has("rawY")) state.rawY = Math.min(3, Math.max(0, Math.round(num("rawY", 3))));
+  if (q.has("pcX")) state.pcX = Math.min(3, Math.max(0, Math.round(num("pcX", 0))));
+  if (q.has("pcY")) state.pcY = Math.min(3, Math.max(0, Math.round(num("pcY", 1))));
+  if (q.get("rot") === "1") state.auto3d = true;
+})();
+
+/* =====================================================================
+   绘图工具
+   ===================================================================== */
+function prepCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(120, rect.width);
+  const h = Math.max(120, rect.height);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+
+function niceNum(range) {
+  const exp = Math.floor(Math.log10(range));
+  const f = range / Math.pow(10, exp);
+  let nf;
+  if (f <= 1) nf = 1;
+  else if (f <= 2) nf = 2;
+  else if (f <= 5) nf = 5;
+  else nf = 10;
+  return nf * Math.pow(10, exp);
+}
+
+function ticksFor(min, max, count) {
+  count = count || 5;
+  if (!(max > min)) { max = min + 1; }
+  const step = niceNum((max - min) / count);
+  const out = [];
+  const start = Math.ceil(min / step) * step;
+  for (let v = start; v <= max + step * 1e-6; v += step) {
+    out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  }
+  return { ticks: out, step };
+}
+
+function fmt(v, digits) {
+  if (!Number.isFinite(v)) return "–";
+  const d = digits === undefined ? 2 : digits;
+  return v.toFixed(d);
+}
+
+/* 通用散点图。opts: { title, xLabel, yLabel, points:[{x,y,c(i),label}], arrows:[{x,y,label}], origin } */
+function drawScatter(canvas, opts) {
+  const { ctx, w, h } = prepCanvas(canvas);
+  const pad = { l: 56, r: 18, t: 20, b: 52 };
+  const iw = Math.max(10, w - pad.l - pad.r);
+  const ih = Math.max(10, h - pad.t - pad.b);
+
+  const pts = opts.points.filter(p => p.visible !== false);
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const p of pts) {
+    xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
+    ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
+  }
+  if (!Number.isFinite(xmin)) { xmin = -1; xmax = 1; ymin = -1; ymax = 1; }
+  const arrows = opts.arrows || [];
+  for (const a of arrows) {
+    /* 像素模式的箭头只有方向 (dx,dy)，不参与数据范围计算，否则会把范围算成 NaN */
+    if (a.dx !== undefined) continue;
+    xmin = Math.min(xmin, a.x, 0); xmax = Math.max(xmax, a.x, 0);
+    ymin = Math.min(ymin, a.y, 0); ymax = Math.max(ymax, a.y, 0);
+  }
+  const mx = (xmax - xmin) * 0.08 || 0.5;
+  const my = (ymax - ymin) * 0.08 || 0.5;
+  xmin -= mx; xmax += mx; ymin -= my; ymax += my;
+
+  const sx = v => pad.l + (v - xmin) / (xmax - xmin) * iw;
+  const sy = v => pad.t + (1 - (v - ymin) / (ymax - ymin)) * ih;
+
+  /* 背景 */
+  ctx.fillStyle = "rgba(255,255,255,0.012)";
+  ctx.fillRect(pad.l, pad.t, iw, ih);
+
+  /* 网格 + 刻度 */
+  if (opts.showGrid) {
+    const tx = ticksFor(xmin, xmax, 5);
+    const ty = ticksFor(ymin, ymax, 5);
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.lineWidth = 1;
+    ctx.fillStyle = "#7d8cb3";
+    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    for (const t of tx.ticks) {
+      const x = sx(t);
+      if (x < pad.l - 1 || x > pad.l + iw + 1) continue;
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ih); ctx.stroke();
+      ctx.fillText(fmt(t, Math.abs(t) < 10 ? 1 : 0), x, pad.t + ih + 6);
+    }
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (const t of ty.ticks) {
+      const y = sy(t);
+      if (y < pad.t - 1 || y > pad.t + ih + 1) continue;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + iw, y); ctx.stroke();
+      ctx.fillText(fmt(t, Math.abs(t) < 10 ? 1 : 0), pad.l - 8, y);
+    }
+  }
+
+  /* 零线（PCA 空间里特别有意义） */
+  ctx.strokeStyle = "rgba(120,160,255,0.28)";
+  ctx.lineWidth = 1;
+  if (xmin < 0 && xmax > 0) {
+    ctx.beginPath(); ctx.moveTo(sx(0), pad.t); ctx.lineTo(sx(0), pad.t + ih); ctx.stroke();
+  }
+  if (ymin < 0 && ymax > 0) {
+    ctx.beginPath(); ctx.moveTo(pad.l, sy(0)); ctx.lineTo(pad.l + iw, sy(0)); ctx.stroke();
+  }
+
+  /* 载荷箭头：颜色区分 4 个原始特征。
+     方向由 (loading_x·√λx, loading_y·√λy) 决定；长度固定像素量（按载荷模长微调），
+     这样 PC2 轴尺度很小的时候箭头也不会被压成一条线。 */
+  if (arrows.length) {
+    const ox = sx(0), oy = sy(0);
+    arrows.forEach((a, ai) => {
+      const col = a.color || "rgba(255,196,81,0.9)";
+      const d = Math.hypot(a.dx || 0, a.dy || 0) || 1;
+      const ux = (a.dx || 0) / d;
+      const uy = -(a.dy || 0) / d;              /* 屏幕 y 轴向下，需取反 */
+      const perp = ((ai % 4) - 1.5) * 7;        /* 垂直错位，防止方向相近的箭头完全重叠 */
+      const x0 = ox - uy * perp, y0 = oy + ux * perp;
+      const len = a.len || 70;
+      const x1 = x0 + ux * len, y1 = y0 + uy * len;
+      const ang = Math.atan2(y1 - y0, x1 - x0);
+      ctx.strokeStyle = col;
+      ctx.fillStyle = col;
+      ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      const ah = 7.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 - ah * Math.cos(ang - 0.4), y1 - ah * Math.sin(ang - 0.4));
+      ctx.lineTo(x1 - ah * Math.cos(ang + 0.4), y1 - ah * Math.sin(ang + 0.4));
+      ctx.closePath(); ctx.fill();
+      /* 标签放在箭头尖端外侧 */
+      const lx = x1 + Math.cos(ang) * 12;
+      const ly = y1 + Math.sin(ang) * 12;
+      ctx.font = "600 11px " + getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = Math.cos(ang) >= 0 ? "left" : "right";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = col;
+      ctx.fillText(a.label, lx, ly);
+    });
+  }
+
+  /* 点 */
+  hit[opts.key] = [];
+  for (const p of pts) {
+    const x = sx(p.x), y = sy(p.y);
+    const r = p.r || 4.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.dim ? 0.22 : 0.9;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = "rgba(8,12,22,0.75)";
+    ctx.stroke();
+    hit[opts.key].push({ x, y, i: p.i, r: r + 5 });
+  }
+
+  /* 轴标题 */
+  ctx.fillStyle = "#a8b8dc";
+  ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(opts.xLabel, pad.l + iw / 2, h - 6);
+  ctx.save();
+  ctx.translate(14, pad.t + ih / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(opts.yLabel, 0, 0);
+  ctx.restore();
+
+  if (opts.corner) {
+    ctx.fillStyle = "rgba(140,160,200,0.85)";
+    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText(opts.corner, pad.l + iw - 6, pad.t + 6);
+  }
+  return { sx, sy, pad, iw, ih };
+}
+
+/* =====================================================================
+   渲染：散点（原始 / PCA）
+   ===================================================================== */
+function visible(i) { return state.classes[IRIS.y[i]]; }
+
+function rawPoints() {
+  const jx = state.rawX, jy = state.rawY;
+  return IRIS.x.map((row, i) => ({
+    x: row[jx], y: row[jy], i,
+    color: SPECIES_COLOR[IRIS.y[i]],
+    visible: true,
+    dim: !visible(i),
+  }));
+}
+
+function pcaPoints() {
+  const cx = state.pcX, cy = state.pcY;
+  /* 播放动画时，PC2（及以后）从 0 逐渐展开 */
+  const ease = state.animT;
+  return IRIS.x.map((_, i) => {
+    const s = FIT.scores[i];
+    const yv = s[cy] * (cy === 0 ? 1 : ease);
+    return {
+      x: s[cx],
+      y: yv,
+      i,
+      color: SPECIES_COLOR[IRIS.y[i]],
+      visible: true,
+      dim: !visible(i),
+    };
+  });
+}
+
+function renderRaw() {
+  const f = IRIS.features;
+  drawScatter(document.getElementById("cRaw"), {
+    key: "raw",
+    points: rawPoints(),
+    xLabel: f[state.rawX],
+    yLabel: f[state.rawY],
+    showGrid: state.showGrid,
+    corner: "原始 " + (state.standardize ? "标准化后" : "") + " 4 维中的 2 维",
+  });
+  document.getElementById("raw-legend").innerHTML =
+    SPECIES.map((s, i) => `<span><i style="background:${SPECIES_COLOR[i]}"></i>${s}</span>`).join("") +
+    `<span>n = 150</span>`;
+}
+
+function renderPca() {
+  const fit = FIT;
+  /* 载荷箭头：颜色区分 4 个原始特征。
+     注意索引顺序：comps[主成分][特征]，所以第 j 个特征的箭头取 comps[pc][j]。 */
+  const arrowVecs = [0, 1, 2, 3].map(j => ({
+    dx: fit.comps[state.pcX][j] * Math.sqrt(fit.eigvals[state.pcX] || 1),
+    dy: fit.comps[state.pcY][j] * Math.sqrt(fit.eigvals[state.pcY] || 1),
+  }));
+  const maxNorm = Math.max(...arrowVecs.map(v => Math.hypot(v.dx, v.dy)), 1e-9);
+  const arrows = state.showArrows
+    ? arrowVecs.map((v, j) => ({
+        dx: v.dx,
+        dy: v.dy,
+        label: FEATURE_CODE[j],
+        color: ARROW_COLORS[j],
+        len: 42 + 62 * Math.hypot(v.dx, v.dy) / maxNorm,
+      }))
+    : [];
+  drawScatter(document.getElementById("cPca"), {
+    key: "pca",
+    points: pcaPoints(),
+    arrows,
+    xLabel: `PC${state.pcX + 1}（${fmt(fit.ratio[state.pcX] * 100, 2)}% 方差）`,
+    yLabel: `PC${state.pcY + 1}（${fmt(fit.ratio[state.pcY] * 100, 2)}% 方差）`,
+    showGrid: state.showGrid,
+    corner: `PC${state.pcX + 1} × PC${state.pcY + 1} 平面 · k = ${state.k}`,
+  });
+  document.getElementById("pca-legend").innerHTML =
+    SPECIES.map((s, i) => `<span><i style="background:${SPECIES_COLOR[i]}"></i>${s}</span>`).join("") +
+    (state.showArrows
+      ? FEATURE_SHORT.map((f, j) =>
+          `<span><i style="background:${ARROW_COLORS[j]}"></i>${f}</span>`).join("")
+      : "");
+}
+
+/* =====================================================================
+   渲染：碎石图
+   ===================================================================== */
+function renderScree() {
+  const canvas = document.getElementById("cScree");
+  const { ctx, w, h } = prepCanvas(canvas);
+  const pad = { l: 48, r: 44, t: 22, b: 44 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const ratio = FIT.ratio;
+  const cum = [];
+  ratio.reduce((a, b, i) => (cum[i] = a + b, cum[i]), 0);
+  const n = ratio.length;
+  const bw = iw / n;
+  const yOf = v => pad.t + ih * (1 - v);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.fillStyle = "#7d8cb3";
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let t = 0; t <= 100; t += 25) {
+    const y = yOf(t / 100);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + iw, y); ctx.stroke();
+    ctx.fillText(t + "%", pad.l - 8, y);
+  }
+
+  for (let i = 0; i < n; i++) {
+    const x = pad.l + bw * i + bw * 0.18;
+    const bwid = bw * 0.64;
+    const yTop = yOf(ratio[i]);
+    const active = i < state.k;
+    const grad = ctx.createLinearGradient(0, yTop, 0, pad.t + ih);
+    if (active) {
+      grad.addColorStop(0, "rgba(78,168,255,1)");
+      grad.addColorStop(1, "rgba(78,168,255,0.25)");
+    } else {
+      grad.addColorStop(0, "rgba(78,168,255,0.42)");
+      grad.addColorStop(1, "rgba(78,168,255,0.08)");
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const r = 5;
+    ctx.moveTo(x, pad.t + ih);
+    ctx.lineTo(x, yTop + r);
+    ctx.quadraticCurveTo(x, yTop, x + r, yTop);
+    ctx.lineTo(x + bwid - r, yTop);
+    ctx.quadraticCurveTo(x + bwid, yTop, x + bwid, yTop + r);
+    ctx.lineTo(x + bwid, pad.t + ih);
+    ctx.closePath();
+    ctx.fill();
+
+    /* 高柱子把数字写在柱内，矮柱子写在柱顶，避免与累计折线打架 */
+    ctx.font = "600 11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    if (ratio[i] > 0.3) {
+      ctx.fillStyle = "rgba(240,247,255,0.95)";
+      ctx.textBaseline = "top";
+      ctx.fillText(fmt(ratio[i] * 100, 1) + "%", x + bwid / 2, yTop + 10);
+    } else {
+      ctx.fillStyle = active ? "#d7e8ff" : "#7d8cb3";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(fmt(ratio[i] * 100, 1) + "%", x + bwid / 2, yTop - 4);
+    }
+
+    ctx.fillStyle = active ? "#e7edff" : "#8b99bd";
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText("PC" + (i + 1), pad.l + bw * i + bw / 2, pad.t + ih + 8);
+  }
+
+  /* 累计折线 */
+  ctx.strokeStyle = "#ffc451";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = pad.l + bw * i + bw / 2;
+    const y = yOf(cum[i]);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  for (let i = 0; i < n; i++) {
+    const x = pad.l + bw * i + bw / 2;
+    const y = yOf(cum[i]);
+    ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2);
+    ctx.fillStyle = i < state.k ? "#ffc451" : "rgba(255,196,81,0.45)";
+    ctx.fill();
+  }
+  /* 当前 k 的累计值标注 */
+  const xk = pad.l + bw * (state.k - 1) + bw / 2;
+  const yk = yOf(cum[state.k - 1]);
+  ctx.strokeStyle = "rgba(255,122,122,0.65)";
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(pad.l, yk); ctx.lineTo(pad.l + iw, yk); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#ffb0b0";
+  ctx.font = "600 11px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText("k=" + state.k + " 累计 " + fmt(cum[state.k - 1] * 100, 2) + "%",
+               pad.l + iw * 0.5, yk - 5);
+
+  ctx.fillStyle = "#a8b8dc";
+  ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText("主成分", pad.l + iw / 2, h - 6);
+
+  /* 右侧 y 轴说明 */
+  ctx.save();
+  ctx.translate(w - 10, pad.t + ih / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillStyle = "#a8b8dc";
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("方差贡献率", 0, 0);
+  ctx.restore();
+}
+
+/* =====================================================================
+   渲染：3D 视角（PC1 / PC2 / PC3）
+   ===================================================================== */
+function render3d() {
+  const canvas = document.getElementById("c3d");
+  const { ctx, w, h } = prepCanvas(canvas);
+  const pad = { l: 16, r: 16, t: 24, b: 16 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const cx = pad.l + iw / 2, cy = pad.t + ih / 2;
+
+  const idx = [0, 1, 2];   /* 3D 视角固定用 PC1 / PC2 / PC3 */
+  const pts = IRIS.x.map((_, i) => {
+    const s = FIT.scores[i];
+    return {
+      v: [s[idx[0]], s[idx[1]], s[idx[2]]],
+      i,
+      color: SPECIES_COLOR[IRIS.y[i]],
+      dim: !visible(i),
+    };
+  });
+
+  /* 归一化到单位立方体，避免 PC1 尺度压扁 PC2/PC3 */
+  const mins = [Infinity, Infinity, Infinity], maxs = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts) for (let a = 0; a < 3; a++) {
+    mins[a] = Math.min(mins[a], p.v[a]);
+    maxs[a] = Math.max(maxs[a], p.v[a]);
+  }
+  const center = mins.map((m, a) => (m + maxs[a]) / 2);
+  const span = Math.max(...mins.map((m, a) => maxs[a] - m), 1e-6);
+
+  const cosX = Math.cos(state.rot.x), sinX = Math.sin(state.rot.x);
+  const cosY = Math.cos(state.rot.y), sinY = Math.sin(state.rot.y);
+  let scale = 1;                       /* 先占位，稍后按「适配画布」重算 */
+
+  function project(v) {
+    /* 归一化：三个轴用同一个 span，保持真实比例（PC1 远大于 PC2/PC3 是数据本身的性质） */
+    const x = (v[0] - center[0]) / span;
+    const y = (v[1] - center[1]) / span;
+    const z = (v[2] - center[2]) / span;
+    /* 绕 Y 轴 */
+    const x1 = x * cosY + z * sinY;
+    const z1 = -x * sinY + z * cosY;
+    /* 绕 X 轴 */
+    const y1 = y * cosX - z1 * sinX;
+    const z2 = y * sinX + z1 * cosX;
+    const persp = 1 / (1.45 - z2 * 0.35);      /* 轻微透视：远小近大 */
+    return {
+      x: cx + x1 * scale * persp,
+      y: cy - y1 * scale * persp,
+      depth: z2,
+      scale: persp,
+    };
+  }
+
+  const font = "11.5px " + getComputedStyle(document.body).fontFamily;
+
+  /* 线框立方体：给出 3D 的深度参照 */
+  const L = 0.5;
+  const cube = [
+    [-L, -L, -L], [L, -L, -L], [L, L, -L], [-L, L, -L],
+    [-L, -L, L], [L, -L, L], [L, L, L], [-L, L, L],
+  ];
+  const cubeEdges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+
+  /* ---- 自适应缩放：先用 scale=1 投影一次，量出屏幕包围盒，再放大到填满画布 ---- */
+  {
+    const probe = cube.map(c => project(c)).concat(pts.map(p => project(p.v)));
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const q of probe) {
+      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x);
+      y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+    }
+    const bw = Math.max(1, x1 - x0), bh = Math.max(1, y1 - y0);
+    scale = Math.min(iw / bw, ih / bh) * 0.9 * state.zoom;
+  }
+
+  const proj = cube.map(c => project(c));
+  ctx.strokeStyle = "rgba(110,150,215,0.24)";
+  ctx.lineWidth = 1;
+  for (const [a, b] of cubeEdges) {
+    ctx.beginPath(); ctx.moveTo(proj[a].x, proj[a].y); ctx.lineTo(proj[b].x, proj[b].y); ctx.stroke();
+  }
+
+  /* 三条主轴 + 轴名（沿各自方向外推，并夹在画布内，避免跑出边界） */
+  const axes = [
+    { v: [L, 0, 0], label: "PC1", dx: 0, dy: 10 },
+    { v: [0, L, 0], label: "PC2", dx: 0, dy: -10 },
+    { v: [0, 0, L], label: "PC3", dx: 12, dy: 10 },
+  ];
+  const clampX = x => Math.max(pad.l + 14, Math.min(w - pad.r - 14, x));
+  const clampY = y => Math.max(pad.t + 10, Math.min(h - pad.b - 10, y));
+  for (const ax of axes) {
+    const a = project(ax.v.map(t => t * 1.15));
+    const o = project([0, 0, 0]);
+    ctx.strokeStyle = "rgba(130,170,235,0.5)";
+    ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(a.x, a.y); ctx.stroke();
+    ctx.fillStyle = "rgba(175,200,240,0.9)";
+    ctx.font = font;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(ax.label, clampX(a.x + ax.dx), clampY(a.y + ax.dy));
+  }
+
+  /* 按深度排序后画点（远的先画） */
+  pts.sort((p1, p2) => project(p1.v).depth - project(p2.v).depth);
+  hit.p3d = [];
+  for (const p of pts) {
+    const q = project(p.v);
+    const r = 3.0 + q.scale * 2.4;
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.dim ? 0.16 : (0.5 + 0.5 * Math.min(1, (q.scale - 0.45) * 1.6));
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = "rgba(8,12,22,0.6)";
+    ctx.stroke();
+    hit.p3d.push({ x: q.x, y: q.y, i: p.i, r: r + 5 });
+  }
+
+  /* 左上角标注三个主成分的方差占比 */
+  ctx.fillStyle = "rgba(150,172,215,0.9)";
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText("PC1 " + fmt(FIT.ratio[0] * 100, 1) + "%  ·  PC2 " + fmt(FIT.ratio[1] * 100, 1) +
+               "%  ·  PC3 " + fmt(FIT.ratio[2] * 100, 1) + "%", pad.l, 4);
+}
+
+/* =====================================================================
+   渲染：表格与摘要
+   ===================================================================== */
+function renderLoadings() {
+  const k = state.k;
+  const el = document.getElementById("loadings");
+  let html = "<table><thead><tr><th>特征 \\ 主成分</th>";
+  for (let c = 0; c < 4; c++) {
+    html += `<th style="${c < k ? "color:#7fc4ff" : "opacity:.45"}">PC${c + 1}${c < k ? "" : "（弃）"}</th>`;
+  }
+  html += "</tr></thead><tbody>";
+  for (let j = 0; j < 4; j++) {
+    html += `<tr><td>${IRIS.features[j]}</td>`;
+    for (let c = 0; c < 4; c++) {
+      const v = FIT.comps[c][j];
+      const a = Math.abs(v);
+      const alpha = Math.min(0.9, 0.06 + a * 0.95);
+      const bg = v >= 0 ? `rgba(78,168,255,${alpha})` : `rgba(255,122,122,${alpha})`;
+      html += `<td style="background:${c < k ? bg : "transparent"};${c < k ? "" : "opacity:.4"}">${v >= 0 ? "+" : ""}${fmt(v, 3)}</td>`;
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+  /* 解释方差 */
+  html += `<div class="sidenote" style="margin-top:8px">解释方差 λ：` +
+    FIT.eigvals.map((v, i) => `PC${i + 1}=${fmt(v, 4)}`).join("　") + `</div>`;
+  el.innerHTML = html;
+}
+
+function renderReconTable() {
+  const el = document.getElementById("recon-table");
+  const rows = 6;
+  let html = "<table><thead><tr><th>#</th><th>类别</th>";
+  html += IRIS.features.map(f => `<th>${f.split(" ")[0]}</th>`).join("");
+  html += "<th>‖误差‖</th></tr></thead><tbody>";
+  for (let i = 0; i < rows; i++) {
+    const orig = IRIS.x[i], rec = RECON[i];
+    let err = 0;
+    let cells = "";
+    for (let j = 0; j < 4; j++) {
+      const d = orig[j] - rec[j];
+      err += d * d;
+      cells += `<td title="原值 ${fmt(orig[j], 2)} / 重构 ${fmt(rec[j], 2)}">${fmt(orig[j], 1)}→${fmt(rec[j], 1)}</td>`;
+    }
+    html += `<tr><td>${i + 1}</td><td style="color:${SPECIES_COLOR[IRIS.y[i]]}">${SPECIES[IRIS.y[i]].slice(0, 4)}</td>` +
+            cells + `<td class="err">${fmt(Math.sqrt(err), 3)}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  el.innerHTML = html;
+}
+
+function renderSummary() {
+  const mu = FIT.mu, sd = FIT.sd;
+  const kmax = state.k;
+  let s = "";
+  s += "样本: " + FIT.n + "   特征: " + FIT.p + "   当前 k: " + kmax + "\n";
+  s += "预处理: " + (FIT.standardize ? "零均值化 + 除以标准差（z-score）" : "仅零均值化") + "\n\n";
+  s += "均值 μ = [" + mu.map(v => fmt(v, 4)).join(", ") + "]\n";
+  s += "标准差 σ = [" + (FIT.standardize ? sd.map(v => fmt(v, 4)).join(", ") : "同原始量纲，未使用") + "]\n\n";
+  s += "特征值 λ（降序） = [" + FIT.eigvals.map(v => fmt(v, 4)).join(", ") + "]\n";
+  s += "贡献率 = [" + FIT.ratio.map(v => fmt(v * 100, 2) + "%").join(", ") + "]\n";
+  let cum = 0;
+  const cumArr = FIT.ratio.map(v => (cum += v));
+  s += "累计贡献率 = [" + cumArr.map(v => fmt(v * 100, 2) + "%").join(", ") + "]\n\n";
+  s += "保留信息量 (k=" + kmax + ") = " + fmt(cumArr[kmax - 1] * 100, 4) + "%\n";
+  s += "重构 RMSE = " + fmt(rmseOf(IRIS.x, RECON), 6) + " cm\n";
+  s += "存储: 原数据 " + (FIT.n * FIT.p) + " 个数 → 降维后 " + (FIT.n * kmax + FIT.p * kmax) +
+       " 个数（含特征向量）\n";
+  document.getElementById("summary").textContent = s;
+}
+
+/* =====================================================================
+   指标卡
+   ===================================================================== */
+function renderMetrics() {
+  const cum = FIT.ratio.reduce((a, b) => a + b, 0);
+  const cumArr = FIT.ratio.map((_, i) =>
+    FIT.ratio.slice(0, i + 1).reduce((a, b) => a + b, 0));
+  document.getElementById("m-keep").textContent = fmt(cumArr[state.k - 1] * 100, 2);
+  document.getElementById("m-rmse").textContent = fmt(rmseOf(IRIS.x, RECON), 3);
+  document.getElementById("m-comp").textContent = fmt(state.k / 4 * 100, 0);
+  document.getElementById("m-k").textContent = state.k;
+  document.getElementById("k-label").textContent = state.k + " 维";
+  document.getElementById("badge-pc1").textContent = fmt(FIT.ratio[0] * 100, 2) + "%";
+  document.getElementById("std-note").textContent = FIT.standardize
+    ? "当前：零均值化 + 除以标准差（z-score）→ 各特征方差都为 1"
+    : "当前：只做零均值化（与课程代码一致）";
+  const slider = document.getElementById("k-slider");
+  slider.value = state.k;
+  slider.style.setProperty("--p", ((state.k - 1) / 3 * 100) + "%");
+  void cum;
+}
+
+/* =====================================================================
+   主流程
+   ===================================================================== */
+function recompute() {
+  FIT = pcaFit(IRIS.x, { standardize: state.standardize });
+  RECON = reconstruct(FIT, state.k);
+}
+
+function renderAll() {
+  renderRaw();
+  renderPca();
+  renderScree();
+  render3d();
+  renderLoadings();
+  renderReconTable();
+  renderSummary();
+  renderMetrics();
+}
+
+/* =====================================================================
+   交互：hover
+   ===================================================================== */
+const tooltip = document.getElementById("tooltip");
+let hoverPoint = null;
+
+function showTooltip(evt, i, space) {
+  const row = IRIS.x[i];
+  const s = FIT.scores[i];
+  const rec = RECON[i];
+  const cls = SPECIES[IRIS.y[i]];
+  let err = 0, errTxt = "";
+  for (let j = 0; j < 4; j++) {
+    const d = row[j] - rec[j];
+    err += d * d;
+    errTxt += `<div class="t-row"><span>${FEATURE_SHORT[j]}</span><b>${fmt(row[j], 1)} → ${fmt(rec[j], 1)}</b></div>`;
+  }
+  tooltip.innerHTML =
+    `<div class="t-head" style="color:${SPECIES_COLOR[IRIS.y[i]]}">#${i + 1} ${cls}</div>` +
+    `<div class="t-row"><span>原始 4 维</span><b>${row.map(v => fmt(v, 1)).join(" / ")}</b></div>` +
+    `<div class="t-row"><span>PC1 / PC2</span><b>${fmt(s[0], 2)} / ${fmt(s[1], 2)}</b></div>` +
+    `<div class="t-row"><span>PC3 / PC4</span><b>${fmt(s[2], 2)} / ${fmt(s[3], 2)}</b></div>` +
+    `<div class="t-row"><span>重构 (k=${state.k})</span><b>${fmt(Math.sqrt(err), 3)} cm 误差</b></div>` +
+    `<div style="height:6px"></div>` + errTxt +
+    `<div class="t-row" style="margin-top:4px"><span>空间</span><b>${space}</b></div>`;
+  const pad = 14;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const rect = tooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - pad;
+  tooltip.style.left = x + "px";
+  tooltip.style.top = y + "px";
+  tooltip.classList.add("show");
+}
+
+function hideTooltip() {
+  tooltip.classList.remove("show");
+  hoverPoint = null;
+}
+
+function attachHover(canvas, key, space) {
+  canvas.addEventListener("mousemove", evt => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = evt.clientX - rect.left, my = evt.clientY - rect.top;
+    let best = null, bestD = Infinity;
+    for (const p of hit[key] || []) {
+      const d = (p.x - mx) ** 2 + (p.y - my) ** 2;
+      if (d < bestD) { bestD = d; best = p; }
+    }
+    if (best && bestD <= (best.r * best.r)) {
+      showTooltip(evt, best.i, space);
+      hoverPoint = { canvas, key, i: best.i };
+    } else {
+      hideTooltip();
+    }
+  });
+  canvas.addEventListener("mouseleave", hideTooltip);
+}
+
+/* =====================================================================
+   交互：控件
+   ===================================================================== */
+function fillSelect(sel, items) {
+  sel.innerHTML = items.map((t, i) => `<option value="${i}">${t}</option>`).join("");
+}
+
+function bindUI() {
+  fillSelect(document.getElementById("raw-x"), IRIS.features);
+  fillSelect(document.getElementById("raw-y"), IRIS.features);
+  fillSelect(document.getElementById("pc-x"), ["PC1", "PC2", "PC3", "PC4"]);
+  fillSelect(document.getElementById("pc-y"), ["PC1", "PC2", "PC3", "PC4"]);
+  document.getElementById("raw-x").value = state.rawX;
+  document.getElementById("raw-y").value = state.rawY;
+  document.getElementById("pc-x").value = state.pcX;
+  document.getElementById("pc-y").value = state.pcY;
+
+  const ks = document.getElementById("k-slider");
+  ks.value = state.k;
+  ks.addEventListener("input", e => {
+    state.k = parseInt(e.target.value, 10);
+    RECON = reconstruct(FIT, state.k);
+    renderAll();
+  });
+
+  document.getElementById("std-toggle").checked = state.standardize;
+  document.getElementById("std-toggle").addEventListener("change", e => {
+    state.standardize = e.target.checked;
+    recompute();
+    renderAll();
+  });
+  if (state.standardize) document.getElementById("std-toggle").checked = true;
+
+  document.getElementById("raw-x").addEventListener("change", e => {
+    state.rawX = parseInt(e.target.value, 10);
+    reseedSelects();
+    renderRaw();
+  });
+  document.getElementById("raw-y").addEventListener("change", e => {
+    state.rawY = parseInt(e.target.value, 10);
+    reseedSelects();
+    renderRaw();
+  });
+  document.getElementById("pc-x").addEventListener("change", e => {
+    state.pcX = parseInt(e.target.value, 10);
+    renderPca();
+  });
+  document.getElementById("pc-y").addEventListener("change", e => {
+    state.pcY = parseInt(e.target.value, 10);
+    renderPca();
+  });
+
+  document.querySelectorAll("#class-toggle button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const c = parseInt(btn.dataset.class, 10);
+      state.classes[c] = !state.classes[c];
+      btn.classList.toggle("on", state.classes[c]);
+      btn.classList.toggle("off", !state.classes[c]);
+      renderRaw(); renderPca(); render3d();
+    });
+  });
+
+  document.getElementById("arrow-toggle").addEventListener("change", e => {
+    state.showArrows = e.target.checked;
+    renderPca();
+  });
+  document.getElementById("grid-toggle").addEventListener("change", e => {
+    state.showGrid = e.target.checked;
+    renderRaw(); renderPca();
+  });
+  document.getElementById("auto3d-toggle").checked = state.auto3d;
+  document.getElementById("auto3d-toggle").addEventListener("change", e => {
+    state.auto3d = e.target.checked;
+  });
+
+  document.getElementById("reset-btn").addEventListener("click", () => {
+    state.rot = { x: -0.42, y: 0.72 };
+    state.zoom = 1;
+    render3d();
+  });
+
+  document.getElementById("play-btn").addEventListener("click", playAnimation);
+
+  /* 3D 拖拽旋转 + 滚轮缩放 */
+  const c3d = document.getElementById("c3d");
+  let dragging = false, lastX = 0, lastY = 0;
+  c3d.addEventListener("pointerdown", e => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    c3d.setPointerCapture(e.pointerId);
+  });
+  c3d.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    state.rot.y += (e.clientX - lastX) * 0.008;
+    state.rot.x += (e.clientY - lastY) * 0.008;
+    state.rot.x = Math.max(-1.45, Math.min(1.45, state.rot.x));
+    lastX = e.clientX; lastY = e.clientY;
+    render3d();
+  });
+  c3d.addEventListener("pointerup", e => {
+    dragging = false;
+    try { c3d.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+  });
+  c3d.addEventListener("wheel", e => {
+    e.preventDefault();
+    state.zoom = Math.max(0.5, Math.min(2.2, state.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+    render3d();
+  }, { passive: false });
+
+  attachHover(document.getElementById("cRaw"), "raw", "原始特征空间");
+  attachHover(document.getElementById("cPca"), "pca", "PCA 投影空间");
+  attachHover(document.getElementById("c3d"), "p3d", "3D 视角");
+}
+
+/* 原始空间轴不能选同一个特征 */
+function reseedSelects() {
+  document.getElementById("raw-x").value = state.rawX;
+  document.getElementById("raw-y").value = state.rawY;
+}
+
+/* PC2 展开动画 */
+let animRAF = null;
+function playAnimation() {
+  if (animRAF) cancelAnimationFrame(animRAF);
+  state.animT = 0;
+  const t0 = performance.now();
+  const dur = 1100;
+  const step = now => {
+    const t = Math.min(1, (now - t0) / dur);
+    /* easeOutCubic */
+    state.animT = 1 - Math.pow(1 - t, 3);
+    renderPca();
+    if (t < 1) animRAF = requestAnimationFrame(step);
+    else { animRAF = null; state.animT = 1; renderPca(); }
+  };
+  animRAF = requestAnimationFrame(step);
+}
+
+/* =====================================================================
+   启动
+   ===================================================================== */
+function boot() {
+  if (!IRIS.x.length) {
+    document.getElementById("summary").textContent =
+      "数据尚未注入：请用 build/inject_data.py 往本文件的 IRIS-DATA 区块写入鸢尾花数据。";
+    return;
+  }
+  recompute();
+  bindUI();
+  renderAll();
+
+  /* 3D 自动旋转 */
+  let last = performance.now();
+  function loop(now) {
+    const dt = now - last;
+    last = now;
+    if (state.auto3d && dt < 200) {
+      state.rot.y += dt * 0.00028;
+      render3d();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* 尺寸变化重绘 */
+  let rt = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(renderAll, 120);
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
